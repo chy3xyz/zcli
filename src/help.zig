@@ -48,14 +48,11 @@ pub fn print_help(writer: anytype, comptime Cmd: type) !void {
     if (meta.args.len > 0) {
         try writer.print("\nFlags:\n", .{});
         for (meta.args) |arg| {
-            const display = if (arg.kind == .flag)
-                try std.fmt.allocPrint(std.heap.page_allocator, "--{s}", .{arg.name})
-            else
-                try std.fmt.allocPrint(std.heap.page_allocator, "{s}", .{arg.name});
-            defer std.heap.page_allocator.free(display);
-
-            const width = padding + max_len - display.len;
-            try writer.print("   {s}", .{display});
+            const display_len = if (arg.kind == .flag) arg.name.len + 2 else arg.name.len;
+            const width = padding + max_len - display_len;
+            try writer.print("   ", .{});
+            if (arg.kind == .flag) try writer.print("--", .{});
+            try writer.print("{s}", .{arg.name});
             try writer.writeByteNTimes(' ', width);
             try writer.print("{s}\n", .{arg.help});
         }
