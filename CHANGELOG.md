@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-14
+
 ### Added
 
 - `zcli_options` declaration for per-field help text and single-character shortcuts.
