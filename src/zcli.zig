@@ -13,7 +13,7 @@ pub fn parse(comptime Cmd: type, args: []const []const u8, allocator: std.mem.Al
     return parser.parse(Cmd, args, allocator);
 }
 
-pub fn free(comptime Cmd: type, value: *command.Result(Cmd), allocator: std.mem.Allocator) void {
+pub fn free(comptime Cmd: type, value: *const command.Result(Cmd), allocator: std.mem.Allocator) void {
     parser.free(Cmd, value, allocator);
 }
 

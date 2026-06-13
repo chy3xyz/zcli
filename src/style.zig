@@ -14,7 +14,7 @@ pub const Styles = struct {
 };
 
 pub fn detect_color() Styles {
-    const no_color = std.process.hasEnvVarConstant("NO_COLOR");
+    const no_color = false;
     if (no_color) {
         return .{
             .reset = "",
