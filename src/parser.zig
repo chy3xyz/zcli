@@ -253,3 +253,37 @@ test "parse subcommand" {
     try std.testing.expectEqualStrings("deploy.sh", result.value.run.script);
     try std.testing.expectEqual(true, result.value.run.now);
 }
+
+test "parse positional arg" {
+    const Cmd = struct { script: []const u8 };
+    const result = try parse(Cmd, &.{"deploy.sh"}, std.testing.allocator);
+    defer free(Cmd, &result, std.testing.allocator);
+    try std.testing.expectEqualStrings("deploy.sh", result.script);
+}
+
+test "parse optional flag" {
+    const Cmd = struct { name: ?[]const u8 = null };
+    const result = try parse(Cmd, &.{"--name", "alice"}, std.testing.allocator);
+    defer free(Cmd, &result, std.testing.allocator);
+    try std.testing.expectEqualStrings("alice", result.name.?);
+}
+
+test "parse enum flag" {
+    const Level = enum { debug, info, warn };
+    const Cmd = struct { level: Level = .info };
+    const result = try parse(Cmd, &.{"--level", "warn"}, std.testing.allocator);
+    defer free(Cmd, &result, std.testing.allocator);
+    try std.testing.expectEqual(Level.warn, result.level);
+}
+
+test "missing positional arg errors" {
+    const Cmd = struct { script: []const u8 };
+    const err = parse(Cmd, &.{}, std.testing.allocator);
+    try std.testing.expectError(error.MissingPositionalArg, err);
+}
+
+test "too many positional args errors" {
+    const Cmd = struct { script: []const u8 };
+    const err = parse(Cmd, &.{"a", "b"}, std.testing.allocator);
+    try std.testing.expectError(error.TooManyPositionalArgs, err);
+}
