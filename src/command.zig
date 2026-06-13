@@ -108,6 +108,19 @@ pub fn meta(comptime Cmd: type) CommandMeta {
     }
 }
 
+/// Result(Cmd) is Cmd for leaf commands, or a struct carrying the active
+/// subcommand tag plus the full command value for parent commands.
+pub fn Result(comptime Cmd: type) type {
+    comptime {
+        const m = meta(Cmd);
+        if (m.subcommands.len == 0) return Cmd;
+        return struct {
+            active: std.meta.FieldEnum(Cmd),
+            value: Cmd,
+        };
+    }
+}
+
 test "meta generation" {
     const Cmd = struct {
         verbose: bool = false,
@@ -117,4 +130,9 @@ test "meta generation" {
     try std.testing.expectEqual(2, m.args.len);
     try std.testing.expectEqualStrings("verbose", m.args[0].name);
     try std.testing.expectEqual(bool, m.args[0].field_type);
+}
+
+test "Result type for leaf is the struct itself" {
+    const Cmd = struct { verbose: bool = false };
+    try std.testing.expectEqual(Cmd, Result(Cmd));
 }
