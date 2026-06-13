@@ -47,7 +47,7 @@ fn is_enum(comptime T: type) bool {
     return @typeInfo(T) == .@"enum";
 }
 
-fn is_struct(comptime T: type) bool {
+pub fn is_struct(comptime T: type) bool {
     return @typeInfo(T) == .@"struct";
 }
 
@@ -72,53 +72,53 @@ fn is_supported_flag_type(comptime T: type) bool {
 }
 
 pub fn meta(comptime Cmd: type) CommandMeta {
-    comptime {
-        if (!is_struct(Cmd)) @compileError("command must be a struct");
+    if (!is_struct(Cmd)) @compileError("command must be a struct");
 
-        var args: []const ArgMeta = &[]ArgMeta{};
-        var subcommands: []const CommandMeta = &[]CommandMeta{};
+    const info = @typeInfo(Cmd).@"struct";
 
-        for (@typeInfo(Cmd).@"struct".fields) |field| {
-            if (is_struct(field.type)) {
-                const sub = meta(field.type);
-                subcommands = subcommands ++ &[1]CommandMeta{sub};
-            } else {
-                if (!is_supported_flag_type(field.type)) {
-                    @compileError("unsupported field type for arg: " ++ field.name);
-                }
-                const kind = arg_kind(field.type);
-                const required = kind == .positional and !is_optional(field.type) and field.type != []const []const u8;
-                args = args ++ &[1]ArgMeta{.{
-                    .name = field.name,
-                    .help = "",
-                    .kind = kind,
-                    .field_type = field.type,
-                    .default_value = field.default_value,
-                    .required = required,
-                }};
+    var args: []const ArgMeta = &[_]ArgMeta{};
+    var subcommands: []const CommandMeta = &[_]CommandMeta{};
+
+    inline for (info.field_names, info.field_types, info.field_attrs) |name, field_type, attrs| {
+        if (is_struct(field_type)) {
+            const sub = meta(field_type);
+            subcommands = subcommands ++ &[1]CommandMeta{sub};
+        } else {
+            if (!is_supported_flag_type(field_type)) {
+                @compileError("unsupported field type for arg: " ++ name);
             }
+            const kind = arg_kind(field_type);
+            const required = kind == .positional and !is_optional(field_type) and field_type != []const []const u8;
+            args = args ++ &[1]ArgMeta{.{
+                .name = name,
+                .help = "",
+                .kind = kind,
+                .field_type = field_type,
+                .default_value = attrs.default_value_ptr,
+                .required = required,
+            }};
         }
-
-        return .{
-            .name = @typeName(Cmd),
-            .help = "",
-            .args = args,
-            .subcommands = subcommands,
-        };
     }
+
+    return .{
+        .name = @typeName(Cmd),
+        .help = "",
+        .args = args,
+        .subcommands = subcommands,
+    };
 }
 
 /// Result(Cmd) is Cmd for leaf commands, or a struct carrying the active
 /// subcommand tag plus the full command value for parent commands.
 pub fn Result(comptime Cmd: type) type {
-    comptime {
-        const m = meta(Cmd);
-        if (m.subcommands.len == 0) return Cmd;
-        return struct {
-            active: std.meta.FieldEnum(Cmd),
-            value: Cmd,
-        };
-    }
+    const m = meta(Cmd);
+    if (m.subcommands.len == 0) return Cmd;
+
+    const FieldEnum = std.meta.FieldEnum(Cmd);
+    return struct {
+        active: FieldEnum,
+        value: Cmd,
+    };
 }
 
 test "meta generation" {
