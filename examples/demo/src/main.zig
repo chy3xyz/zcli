@@ -3,10 +3,14 @@ const zcli = @import("zcli");
 
 const RunCmd = struct {
     //! Run your workflow
-    /// Run immediately
+
     now: bool = false,
-    /// Script to execute
     script: []const u8,
+
+    pub const zcli_options = .{
+        .now = .{ .help = "Run immediately", .shortcut = "n" },
+        .script = .{ .help = "Script to execute" },
+    };
 };
 
 const VersionCmd = struct {
@@ -15,9 +19,8 @@ const VersionCmd = struct {
 
 const Root = struct {
     //! Your dev toolkit CLI
-    /// Run a workflow
+
     run: RunCmd,
-    /// Show version
     version: VersionCmd,
 };
 
@@ -44,6 +47,12 @@ pub fn main(init: std.process.Init) !void {
     var errbuf: [1024]u8 = undefined;
     var err_writer = std.Io.File.Writer.init(.stderr(), init.io, &errbuf);
     const stderr = &err_writer.interface;
+
+    if (args.items.len == 0 or std.mem.eql(u8, args.items[0], "--help") or std.mem.eql(u8, args.items[0], "-h")) {
+        try zcli.print_help(stderr, Root);
+        try stderr.flush();
+        return;
+    }
 
     const parsed = zcli.parse(Root, args.items, allocator) catch |err| {
         try zcli.print_diagnostic(stderr, .{ .err = err });

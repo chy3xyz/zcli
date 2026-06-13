@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- `zcli_options` declaration for per-field help text and single-character shortcuts.
+- Shortcut parsing in the argument parser (`-v` maps to `--verbose`).
+- Help renderer displays shortcuts when configured.
+
 ## [0.1.0] - 2026-06-14
 
 ### Added

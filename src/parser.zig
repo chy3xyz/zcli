@@ -102,7 +102,10 @@ fn parse_into(comptime Cmd: type, args: *std.ArrayList([]const u8), out: *Cmd, a
             var matched = false;
             inline for (info.field_names, info.field_types) |field_name, field_type| {
                 if (comptime command.is_struct(field_type)) continue;
-                if (std.mem.eql(u8, name, field_name)) {
+                const shortcut = comptime command.field_shortcut(Cmd, field_name);
+                const matches = std.mem.eql(u8, name, field_name) or
+                    (shortcut != null and std.mem.eql(u8, name, shortcut.?));
+                if (matches) {
                     _ = args.orderedRemove(0);
 
                     if (comptime field_type == bool or
@@ -286,4 +289,16 @@ test "too many positional args errors" {
     const Cmd = struct { script: []const u8 };
     const err = parse(Cmd, &.{"a", "b"}, std.testing.allocator);
     try std.testing.expectError(error.TooManyPositionalArgs, err);
+}
+
+test "parse shortcut flag" {
+    const Cmd = struct {
+        verbose: bool = false,
+        pub const zcli_options = .{
+            .verbose = .{ .shortcut = "v" },
+        };
+    };
+    const result = try parse(Cmd, &.{"-v"}, std.testing.allocator);
+    defer free(Cmd, &result, std.testing.allocator);
+    try std.testing.expectEqual(true, result);
 }

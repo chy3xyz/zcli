@@ -7,9 +7,15 @@ pub const ArgKind = enum {
     positional,
 };
 
+pub const FieldOptions = struct {
+    help: ?[]const u8 = null,
+    shortcut: ?[]const u8 = null,
+};
+
 pub const ArgMeta = struct {
     name: []const u8,
     help: []const u8,
+    shortcut: ?[]const u8,
     kind: ArgKind,
     field_type: type,
     default_value: ?*const anyopaque,
@@ -71,10 +77,43 @@ fn is_supported_flag_type(comptime T: type) bool {
     return false;
 }
 
+fn field_options_value(comptime options: anytype, comptime field_name: []const u8) ?FieldOptions {
+    if (@hasField(@TypeOf(options), field_name)) {
+        const raw = @field(options, field_name);
+        var result = FieldOptions{};
+        if (@hasField(@TypeOf(raw), "help")) {
+            result.help = raw.help;
+        }
+        if (@hasField(@TypeOf(raw), "shortcut")) {
+            result.shortcut = raw.shortcut;
+        }
+        return result;
+    }
+    return null;
+}
+
+pub fn field_help(comptime Cmd: type, comptime field_name: []const u8) []const u8 {
+    if (@hasDecl(Cmd, "zcli_options")) {
+        const opts = field_options_value(Cmd.zcli_options, field_name) orelse return "";
+        return opts.help orelse "";
+    }
+    return "";
+}
+
+pub fn field_shortcut(comptime Cmd: type, comptime field_name: []const u8) ?[]const u8 {
+    if (@hasDecl(Cmd, "zcli_options")) {
+        const opts = field_options_value(Cmd.zcli_options, field_name) orelse return null;
+        return opts.shortcut;
+    }
+    return null;
+}
+
 pub fn meta(comptime Cmd: type) CommandMeta {
     if (!is_struct(Cmd)) @compileError("command must be a struct");
 
     const info = @typeInfo(Cmd).@"struct";
+    const has_options = @hasDecl(Cmd, "zcli_options");
+    const options = if (has_options) Cmd.zcli_options else .{};
 
     var args: []const ArgMeta = &[_]ArgMeta{};
     var subcommands: []const CommandMeta = &[_]CommandMeta{};
@@ -89,9 +128,11 @@ pub fn meta(comptime Cmd: type) CommandMeta {
             }
             const kind = arg_kind(field_type);
             const required = kind == .positional and !is_optional(field_type) and field_type != []const []const u8;
+            const opts = field_options_value(options, name);
             args = args ++ &[1]ArgMeta{.{
                 .name = name,
-                .help = "",
+                .help = if (opts) |o| o.help orelse "" else "",
+                .shortcut = if (opts) |o| o.shortcut else null,
                 .kind = kind,
                 .field_type = field_type,
                 .default_value = attrs.default_value_ptr,
@@ -135,4 +176,17 @@ test "meta generation" {
 test "Result type for leaf is the struct itself" {
     const Cmd = struct { verbose: bool = false };
     try std.testing.expectEqual(Cmd, Result(Cmd));
+}
+
+test "zcli_options provides help and shortcut" {
+    const Cmd = struct {
+        verbose: bool = false,
+
+        pub const zcli_options = .{
+            .verbose = .{ .help = "Enable verbose output", .shortcut = "v" },
+        };
+    };
+    const m = meta(Cmd);
+    try std.testing.expectEqualStrings("Enable verbose output", m.args[0].help);
+    try std.testing.expectEqualStrings("v", m.args[0].shortcut.?);
 }

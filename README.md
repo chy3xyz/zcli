@@ -73,11 +73,31 @@ zig build run -- run --now deploy.sh
 # Output: Running deploy.sh (now=true)
 ```
 
+## Field Options
+
+Add per-field metadata with a `zcli_options` declaration:
+
+```zig
+const RunCmd = struct {
+    now: bool = false,
+    script: []const u8,
+
+    pub const zcli_options = .{
+        .now = .{ .help = "Run immediately", .shortcut = "n" },
+        .script = .{ .help = "Script to execute" },
+    };
+};
+```
+
+This provides help text and single-character shortcuts like `-n`.
+
+> **Note:** Zig's comptime reflection does not expose doc comments on struct fields, so `zcli_options` is the supported way to attach help text.
+
 ## Supported Types
 
 | Type | CLI Form |
 |------|----------|
-| `bool` | `--verbose` |
+| `bool` | `--verbose` or `-v` |
 | `u32`, `i64`, ... | `--count 5` or `--count=5` |
 | `f32`, `f64` | `--ratio 1.5` |
 | `[]const u8` | `--name alice` or positional `<name>` |
@@ -107,6 +127,8 @@ zcli is inspired by [zli](https://github.com/xcaeser/zli) but takes a different 
 | | zli | zcli |
 |---|-----|------|
 | Definition | Builder API | Plain struct + comptime reflection |
+| Help text | Doc comments | `zcli_options` declaration |
+| Shortcuts | Built-in | `zcli_options.shortcut` |
 | Flag access | Runtime lookup | Compile-time typed field access |
 | Error handling | `std.process.exit(1)` | Returns `ParseError` |
 | Type safety | Runtime union | Compile-time struct fields |
