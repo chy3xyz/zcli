@@ -32,7 +32,7 @@ pub fn print_diagnostic(writer: anytype, diag: Diagnostic) !void {
 /// Dispatch a parsed parent command to handler functions.
 /// `handlers` must be a struct with one field per subcommand, where each
 /// field is a function accepting the subcommand result type.
-pub fn execute(comptime Cmd: type, parsed: command.Result(Cmd), handlers: anytype) !void {
+pub fn execute(comptime Cmd: type, parsed: anytype, handlers: anytype) !void {
     if (command.Result(Cmd) == Cmd) {
         @compileError("execute() is only for parent commands with subcommands");
     }

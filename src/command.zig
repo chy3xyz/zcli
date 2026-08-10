@@ -10,6 +10,7 @@ pub const ArgKind = enum {
 pub const FieldOptions = struct {
     help: ?[]const u8 = null,
     shortcut: ?[]const u8 = null,
+    kind: ?ArgKind = null,
 };
 
 pub const ArgMeta = struct {
@@ -34,37 +35,43 @@ fn is_bool(comptime T: type) bool {
 }
 
 fn is_int(comptime T: type) bool {
-    return @typeInfo(T) == .int;
+    return switch (@typeInfo(T)) {
+        .int => true,
+        else => false,
+    };
 }
 
 fn is_float(comptime T: type) bool {
-    return @typeInfo(T) == .float;
+    return switch (@typeInfo(T)) {
+        .float => true,
+        else => false,
+    };
 }
 
 fn is_string(comptime T: type) bool {
     return T == []const u8;
 }
 
-fn is_optional(comptime T: type) bool {
-    return @typeInfo(T) == .optional;
+pub fn is_optional(comptime T: type) bool {
+    return switch (@typeInfo(T)) {
+        .optional => true,
+        else => false,
+    };
 }
 
 fn is_enum(comptime T: type) bool {
-    return @typeInfo(T) == .@"enum";
+    return switch (@typeInfo(T)) {
+        .@"enum" => true,
+        else => false,
+    };
 }
 
 pub fn is_struct(comptime T: type) bool {
-    return @typeInfo(T) == .@"struct";
+    return comptime (std.meta.activeTag(@typeInfo(T)) == .@"struct" and T != []const u8 and T != []const []const u8);
 }
 
-fn is_variadic(comptime T: type) bool {
+fn is_slice_of_strings(comptime T: type) bool {
     return T == []const []const u8;
-}
-
-fn arg_kind(comptime T: type) ArgKind {
-    if (is_struct(T)) @compileError("subcommand types are not args");
-    if (T == []const []const u8) return .positional;
-    return .flag;
 }
 
 fn is_supported_flag_type(comptime T: type) bool {
@@ -73,6 +80,7 @@ fn is_supported_flag_type(comptime T: type) bool {
     if (is_float(T)) return true;
     if (is_string(T)) return true;
     if (is_enum(T)) return true;
+    if (is_slice_of_strings(T)) return true;
     if (is_optional(T)) return is_supported_flag_type(@typeInfo(T).optional.child);
     return false;
 }
@@ -86,6 +94,9 @@ fn field_options_value(comptime options: anytype, comptime field_name: []const u
         }
         if (@hasField(@TypeOf(raw), "shortcut")) {
             result.shortcut = raw.shortcut;
+        }
+        if (@hasField(@TypeOf(raw), "kind")) {
+            result.kind = raw.kind;
         }
         return result;
     }
@@ -108,6 +119,28 @@ pub fn field_shortcut(comptime Cmd: type, comptime field_name: []const u8) ?[]co
     return null;
 }
 
+pub fn field_kind(comptime Cmd: type, comptime field_name: []const u8, comptime T: type) ArgKind {
+    if (is_struct(T)) return .flag;
+    if (@hasDecl(Cmd, "zcli_options")) {
+        if (field_options_value(Cmd.zcli_options, field_name)) |opts| {
+            if (opts.kind) |k| return k;
+            if (opts.shortcut != null) return .flag;
+        }
+    }
+    if (T == []const []const u8 or T == []const u8 or (is_optional(T) and @typeInfo(T).optional.child == []const u8)) {
+        return .positional;
+    }
+    return .flag;
+}
+
+pub fn cmd_help(comptime Cmd: type) []const u8 {
+    if (!is_struct(Cmd)) return "";
+    if (@hasDecl(Cmd, "zcli_help")) {
+        return Cmd.zcli_help;
+    }
+    return "";
+}
+
 pub fn meta(comptime Cmd: type) CommandMeta {
     if (!is_struct(Cmd)) @compileError("command must be a struct");
 
@@ -120,14 +153,20 @@ pub fn meta(comptime Cmd: type) CommandMeta {
 
     inline for (info.field_names, info.field_types, info.field_attrs) |name, field_type, attrs| {
         if (is_struct(field_type)) {
-            const sub = meta(field_type);
+            var sub = meta(field_type);
+            const opts = field_options_value(options, name);
+            if (opts) |o| {
+                if (o.help) |h| {
+                    if (h.len > 0) sub.help = h;
+                }
+            }
             subcommands = subcommands ++ &[1]CommandMeta{sub};
         } else {
             if (!is_supported_flag_type(field_type)) {
                 @compileError("unsupported field type for arg: " ++ name);
             }
-            const kind = arg_kind(field_type);
-            const required = kind == .positional and !is_optional(field_type) and field_type != []const []const u8;
+            const kind = field_kind(Cmd, name, field_type);
+            const required = kind == .positional and !is_optional(field_type) and field_type != []const []const u8 and attrs.default_value_ptr == null;
             const opts = field_options_value(options, name);
             args = args ++ &[1]ArgMeta{.{
                 .name = name,
@@ -143,7 +182,7 @@ pub fn meta(comptime Cmd: type) CommandMeta {
 
     return .{
         .name = @typeName(Cmd),
-        .help = "",
+        .help = cmd_help(Cmd),
         .args = args,
         .subcommands = subcommands,
     };

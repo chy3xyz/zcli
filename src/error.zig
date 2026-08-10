@@ -10,6 +10,7 @@ pub const ParseError = error{
     TooManyPositionalArgs,
     UnknownCommand,
     DuplicateFlag,
+    HelpRequested,
     OutOfMemory,
 };
 

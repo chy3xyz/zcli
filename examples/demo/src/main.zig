@@ -2,7 +2,7 @@ const std = @import("std");
 const zcli = @import("zcli");
 
 const RunCmd = struct {
-    //! Run your workflow
+    pub const zcli_help = "Run your workflow";
 
     now: bool = false,
     script: []const u8,
@@ -14,11 +14,11 @@ const RunCmd = struct {
 };
 
 const VersionCmd = struct {
-    //! Show version
+    pub const zcli_help = "Show version";
 };
 
 const Root = struct {
-    //! Your dev toolkit CLI
+    pub const zcli_help = "Your dev toolkit CLI";
 
     run: RunCmd,
     version: VersionCmd,
@@ -48,16 +48,23 @@ pub fn main(init: std.process.Init) !void {
     var err_writer = std.Io.File.Writer.init(.stderr(), init.io, &errbuf);
     const stderr = &err_writer.interface;
 
-    if (args.items.len == 0 or std.mem.eql(u8, args.items[0], "--help") or std.mem.eql(u8, args.items[0], "-h")) {
+    if (args.items.len == 0) {
         try zcli.print_help(stderr, Root);
         try stderr.flush();
         return;
     }
 
-    const parsed = zcli.parse(Root, args.items, allocator) catch |err| {
-        try zcli.print_diagnostic(stderr, .{ .err = err });
-        try stderr.flush();
-        std.process.exit(1);
+    const parsed = zcli.parse(Root, args.items, allocator) catch |err| switch (err) {
+        error.HelpRequested => {
+            try zcli.print_help(stderr, Root);
+            try stderr.flush();
+            return;
+        },
+        else => {
+            try zcli.print_diagnostic(stderr, .{ .err = err });
+            try stderr.flush();
+            std.process.exit(1);
+        },
     };
     defer zcli.free(Root, &parsed, allocator);
 
