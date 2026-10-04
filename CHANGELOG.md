@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-04
+
+### Added
+
+- `zcli_help` declaration for command-level help descriptions.
+- Built-in `--help` / `-h` handling via `error.HelpRequested`.
+- Combined boolean short flags (e.g. `-vf` sets both `-v` and `-f`).
+- Inline assignment for short flags (`-n=script.sh`).
+- Parent/global flags placed before subcommands (`myapp --verbose run -n file`).
+- Slice flags via `.kind = .flag` for `[]const []const u8` fields (`--include a --include b`).
+- Duplicate flag detection (`error.DuplicateFlag`).
+
+### Changed
+
+- Verified compatibility with the stable Zig 0.17.0 release.
+
 ## [0.2.0] - 2026-06-14
 
 ### Added

@@ -23,7 +23,7 @@ A comptime-driven, type-safe CLI framework for Zig 0.17.
 ### 1. Fetch the package
 
 ```sh
-zig fetch --save=zcli https://github.com/chy3xyz/zcli/archive/v0.2.0.tar.gz
+zig fetch --save=zcli https://github.com/chy3xyz/zcli/archive/v0.3.0.tar.gz
 ```
 
 This adds an entry to your `build.zig.zon`:
@@ -32,7 +32,7 @@ This adds an entry to your `build.zig.zon`:
 .{
     .dependencies = .{
         .zcli = .{
-            .url = "https://github.com/chy3xyz/zcli/archive/v0.2.0.tar.gz",
+            .url = "https://github.com/chy3xyz/zcli/archive/v0.3.0.tar.gz",
             .hash = "<zig-will-fill-this>",
         },
     },
